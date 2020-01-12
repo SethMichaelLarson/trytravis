@@ -31,8 +31,8 @@ __title__ = 'trytravis'
 __author__ = 'Seth Michael Larson'
 __email__ = 'sethmichaellarson@protonmail.com'
 __license__ = 'Apache-2.0'
-__url__ = 'https://github.com/SethMichaelLarson/trytravis'
-__version__ = '1.0.4'
+__version__ = '3'
+__url__ = 'https://github.com/sethmlarson/trytravis'
 
 __all__ = ['main']
 
@@ -70,9 +70,11 @@ _USAGE = ('usage: trytravis [command]?\n'
           '  --help, -h            Prints this help string.\n'
           '  --version, -v         Prints out the version, useful when '
           'submitting an issue.\n'
+          '  --token, -t [token]?  Tells the program you wish to setup '
+          'your Travis token.\n'
           '  --repo, -r [repo]?    Tells the program you wish to setup '
           'your building repository.\n'
-          '  --no-wait, -nw            Don\'t wait for the builds to end.\n'
+          '  --no-wait, -nw        Don\'t wait for the builds to end.\n'
 
           '\n'
           'If you\'re still having troubles feel free to open an '
@@ -85,7 +87,7 @@ _SSH_REGEX = re.compile(r'^ssh://git@github\.com/([^/]+)/([^/]+)$')
 
 def _input_github_repo(url=None):
     """ Grabs input from the user and saves
-    it as their trytravis target repo """
+    it as their trytravis target repo. """
     if url is None:
         url = user_input('Input the URL of the GitHub repository '
                          'to use as a `trytravis` repository: ')
@@ -125,6 +127,24 @@ def _input_github_repo(url=None):
     print('Repository saved successfully.')
 
 
+def _input_travis_token(token=None):
+    """ Grabs input from the user and saves
+    Travis token to access api. """
+    if token is None:
+        token = user_input('Input the token of the TravisCI '
+                           'to access repository information: ')
+
+    if not os.path.isdir(config_dir):
+        os.makedirs(config_dir)
+
+    with open(os.path.join(config_dir, 'token'), 'w+') as f:
+        f.truncate()
+        f.write(token)
+    print('Token saved successfully.')
+
+    return token
+
+
 def _load_github_repo():
     """ Loads the GitHub repository from the users config. """
     if 'TRAVIS' in os.environ:
@@ -136,6 +156,19 @@ def _load_github_repo():
     except (OSError, IOError):
         raise RuntimeError('Could not find your repository. '
                            'Have you ran `trytravis --repo`?')
+
+
+def _load_travis_token():
+    """ Loads the Travis token from the users config. """
+    if 'TRAVIS' in os.environ:
+        raise RuntimeError('Detected that we are running in Travis. '
+                           'Stopping to prevent infinite loops.')
+    try:
+        with open(os.path.join(config_dir, 'token'), 'r') as f:
+            return f.read()
+    except (OSError, IOError):
+        raise RuntimeError('Could not find your Travis token. '
+                           'Have you ran `trytravis --token`?')
 
 
 def _submit_changes_to_github_repo(path, url):
@@ -185,8 +218,29 @@ def _submit_changes_to_github_repo(path, url):
     return commit, committed_at
 
 
+def _get_repo_info():
+    """ Get repository information form Travis API. """
+    import requests
+
+    with requests.get(
+        'https://api.travis-ci.org/repos',
+        headers=_travis_headers()
+    ) as r:
+        if not r.ok:
+            raise RuntimeError('Fail to get repository information. '
+                               'Could not reach the Travis API '
+                               'endpoint. Additional information: '
+                               '%s' % str(r.content))
+        json = r.json()
+        repos = json["repositories"]
+        for i in range(0, len(repos)):
+            if 'trytravis' in repos[i]["name"]:
+                id = repos[i]["id"]
+                return id
+
+
 def _wait_for_travis_build(url, commit, committed_at):
-    """ Waits for a Travis build to appear with the given commit SHA """
+    """ Waits for a Travis build to appear with the given commit SHA. """
     print('Waiting for a Travis build to appear '
           'for `%s` after `%s`...' % (commit, committed_at))
     import requests
@@ -196,7 +250,8 @@ def _wait_for_travis_build(url, commit, committed_at):
     build_id = None
 
     while time.time() - start_time < 60:
-        with requests.get('https://api.travis-ci.org/repos/%s/builds' % slug,
+        repo_id = _get_repo_info()
+        with requests.get('https://api.travis-ci.org/repo/%s/builds' % repo_id,
                           headers=_travis_headers()) as r:
             if not r.ok:
                 raise RuntimeError('Could not reach the Travis API '
@@ -206,18 +261,23 @@ def _wait_for_travis_build(url, commit, committed_at):
             # Search through all commits and builds to find our build.
             commit_to_sha = {}
             json = r.json()
-            for travis_commit in sorted(json['commits'],
-                                        key=lambda x: x['committed_at']):
+            for travis_commit in sorted(
+                json['builds'],
+                key=lambda x: x['commit']['committed_at']
+            ):
                 travis_committed_at = datetime.datetime.strptime(
-                    travis_commit['committed_at'], '%Y-%m-%dT%H:%M:%SZ'
-                ).replace(tzinfo=utc)
+                    travis_commit['commit']['committed_at'],
+                    '%Y-%m-%dT%H:%M:%SZ'
+                    ).replace(tzinfo=utc)
                 if travis_committed_at < committed_at:
                     continue
-                commit_to_sha[travis_commit['id']] = travis_commit['sha']
+                commit_id = travis_commit['commit']['id']
+                commit_sha = travis_commit['commit']['sha']
+                commit_to_sha[commit_id] = commit_sha
 
             for build in json['builds']:
-                if (build['commit_id'] in commit_to_sha and
-                        commit_to_sha[build['commit_id']] == commit):
+                if (build['commit']['id'] in commit_to_sha and
+                        commit_to_sha[build['commit']['id']] == commit):
 
                     build_id = build['id']
                     print('Travis build id: `%d`' % build_id)
@@ -236,14 +296,18 @@ def _wait_for_travis_build(url, commit, committed_at):
 
 def _watch_travis_build(build_id):
     """ Watches and progressively outputs information
-    about a given Travis build """
+    about a given Travis build. """
     import requests
     try:
         build_size = None  # type: int
         running = True
         while running:
-            with requests.get('https://api.travis-ci.org/builds/%d' % build_id,
-                              headers=_travis_headers()) as r:
+            url = 'https://api.travis-ci.org'
+            include_params = '?include=job.config,job.state'
+            with requests.get(
+                '%s/build/%s/jobs%s' % (url, build_id, include_params),
+                headers=_travis_headers()
+            ) as r:
                 json = r.json()
 
                 if build_size is not None:
@@ -272,6 +336,7 @@ def _watch_travis_build(build_id):
                                      len(str(current_number)))
                     number = str(current_number) + padding
                     current_number += 1
+
                     job_display = '#' + ' '.join([number,
                                                   state,
                                                   platform,
@@ -320,9 +385,17 @@ def _slug_from_url(url):
 
 def _version_string():
     """ Gets the output for `trytravis --version`. """
+    """ Gets python version before get system information,
+    because methods like platorm.dist is not disponible
+    in python 3.8 and 3.9. """
+    py_version = sys.version[:5]
     platform_system = platform.system()
     if platform_system == 'Linux':
-        os_name, os_version, _ = platform.dist()
+        if '3.8' or '3.9' in py_version:
+            os_name = platform.system()
+            os_version = platform.version()
+        else:
+            os_name, os_version, _ = platform.dist()
     else:
         os_name = platform_system
         os_version = platform.version()
@@ -335,22 +408,26 @@ def _version_string():
 
 def _travis_headers():
     """ Returns the headers that the Travis API expects from clients. """
-    return {'User-Agent': ('trytravis/%s (https://github.com/'
-                           'SethMichaelLarson/trytravis)') % __version__,
-            'Accept': 'application/vnd.travis-ci.2+json'}
+    token = _load_travis_token()
+    return {'Travis-API-Version': '%s' % __version__,
+            'User-Agent': 'API Explorer',
+            'Authorization': 'token %s' % token}
 
 
 def _main(argv):
     """ Function that acts just like main() except
     doesn't catch exceptions. """
     repo_input_argv = len(argv) == 2 and argv[0] in ['--repo', '-r', '-R']
+    token_input_argv = len(argv) == 2 and argv[0] in ['--token', '-t', '-T']
 
     # We only support a single argv parameter.
-    if len(argv) > 1 and not repo_input_argv:
+    condition_1 = len(argv) > 1 and not token_input_argv
+    condition_2 = len(argv) > 1 and not repo_input_argv
+    if condition_1 and condition_2:
         _main(['--help'])
 
     # Parse the command and do the right thing.
-    if len(argv) == 1 or repo_input_argv:
+    if len(argv) == 1 or repo_input_argv or token_input_argv:
         arg = argv[0]
 
         # Help/usage
@@ -361,7 +438,7 @@ def _main(argv):
         elif arg in ['-v', '--version', '-V']:
             print(_version_string())
 
-        # Token
+        # Repo
         elif arg in ['-r', '--repo', '-R']:
             if len(argv) == 2:
                 url = argv[1]
@@ -369,11 +446,22 @@ def _main(argv):
                 url = None
             _input_github_repo(url)
 
+        # Token
+        elif arg in ['-t', '--token', '-T']:
+            if len(argv) == 2:
+                token = argv[1]
+            else:
+                token = None
+            _input_travis_token(token)
+
         # No wait
         elif arg in ['--no-wait', '-nw']:
             url = _load_github_repo()
-            commit, committed = _submit_changes_to_github_repo(os.getcwd(),
-                                                               url)
+            token = _load_travis_token()
+            commit, committed = _submit_changes_to_github_repo(
+                os.getcwd(),
+                url
+            )
             build_id = _wait_for_travis_build(url, commit, committed)
 
         # Help string
@@ -383,6 +471,7 @@ def _main(argv):
     # No arguments means we're trying to submit to Travis.
     elif len(argv) == 0:
         url = _load_github_repo()
+        token = _load_travis_token()
         commit, committed = _submit_changes_to_github_repo(os.getcwd(), url)
         build_id = _wait_for_travis_build(url, commit, committed)
         _watch_travis_build(build_id)

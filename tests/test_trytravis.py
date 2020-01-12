@@ -91,4 +91,3 @@ def test_repo_doesnt_contain_trytravis():
 
             trytravis._main(['--repo'])
     assert not os.path.isfile(os.path.join(trytravis.config_dir, 'repo'))
-

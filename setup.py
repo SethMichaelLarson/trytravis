@@ -1,4 +1,6 @@
 import os
+import sys
+import platform
 from setuptools import setup
 
 # Get the directory that the setup.py script is in.
@@ -15,6 +17,7 @@ with open(os.path.join(base_dir, 'trytravis.py')) as f:
 install_requires = ['requests>=2.14.0',
                     'colorama>=0.3.9',
                     'GitPython>=2.1.5']
+
 
 # Find all available classifiers at:
 # https://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -34,6 +37,18 @@ classifiers = ['Development Status :: 3 - Alpha',
                'Topic :: Software Development :: Quality Assurance',
                'Topic :: Software Development :: Testing']
 
+py_version = sys.version[:5]
+platform_system = platform.system()
+file_dir = os.path.join(base_dir, 'CHANGELOG.md')
+
+if '2.7' in py_version:
+    import io
+    with io.open(file_dir, 'r', encoding='utf8') as f:
+        long_description = f.read()
+else:
+    with open(file_dir, encoding='utf-8') as f:
+        long_description = f.read()
+
 # Run the setup() command to build the package.
 setup(name=about['__title__'],
       author=about['__author__'],
@@ -42,6 +57,7 @@ setup(name=about['__title__'],
       version=about['__version__'],
       description=('Send local git changes to Travis CI '
                    'without commits or pushes.'),
+      long_description=long_description,
       url=about['__url__'],
       py_modules=['trytravis'],
       install_requires=install_requires,

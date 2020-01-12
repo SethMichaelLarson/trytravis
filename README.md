@@ -86,6 +86,22 @@ Run `trytravis --repo` and enter in the URL to the repository that you just crea
 You can use `ssh://git@github.com/[USERNAME]/[PROJECT]` or
 `https://github.com/[USERNAME]/[PROJECT]` as the URL for the repository.
 
+### Get your access token to Travis API:
+
+Install travis package: `gem install travis`,
+And run this command: `travis login && travis token`
+Insert your github credentials and copy your token from command line.
+```
+Username: your_github_user
+Password for : your_github_password
+Successfully logged in as your_github_user!
+Your access token is your_access_token`
+```
+
+### Tell `trytravis` which token to use
+
+Run `trytravis --token` and just paste your generated token.
+
 ### Ready to Use the Tool
 
 Move to the base directory of your project and execute the following command:
@@ -183,18 +199,18 @@ supporters on our BountySource. Thank you for your support!
 This project is licensed under `Apache-2.0`. Read [`LICENSE`](https://github.com/SethMichaelLarson/trytravis/blob/master/LICENSE) for more information.
 
 ```
- Copyright 2017 Seth Michael Larson
+Copyright 2017 Seth Michael Larson
 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
