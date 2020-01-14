@@ -31,8 +31,8 @@ __title__ = 'trytravis'
 __author__ = 'Seth Michael Larson'
 __email__ = 'sethmichaellarson@protonmail.com'
 __license__ = 'Apache-2.0'
-__version__ = '3'
 __url__ = 'https://github.com/sethmlarson/trytravis'
+__version__ = '2.0'
 
 __all__ = ['main']
 
@@ -240,7 +240,7 @@ def _get_repo_info():
 
 
 def _wait_for_travis_build(url, commit, committed_at):
-    """ Waits for a Travis build to appear with the given commit SHA. """
+    """ Waits for a Travis build to appear with the given commit SHA """
     print('Waiting for a Travis build to appear '
           'for `%s` after `%s`...' % (commit, committed_at))
     import requests
@@ -391,7 +391,7 @@ def _version_string():
     py_version = sys.version[:5]
     platform_system = platform.system()
     if platform_system == 'Linux':
-        if '3.8' or '3.9' in py_version:
+        if '3.8' in py_version or '3.9' in py_version:
             os_name = platform.system()
             os_version = platform.version()
         else:
@@ -409,8 +409,9 @@ def _version_string():
 def _travis_headers():
     """ Returns the headers that the Travis API expects from clients. """
     token = _load_travis_token()
-    return {'Travis-API-Version': '%s' % __version__,
-            'User-Agent': 'API Explorer',
+    return {'Travis-API-Version': '3',
+            'User-Agent': ('trytravis/%s (https://github.com/'
+                           'SethMichaelLarson/trytravis)') % __version__,
             'Authorization': 'token %s' % token}
 
 
