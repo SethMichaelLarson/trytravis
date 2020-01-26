@@ -388,14 +388,13 @@ def _version_string():
     """ Gets python version before get system information,
     because methods like platorm.dist is not disponible
     in python 3.8 and 3.9. """
-    py_version = sys.version[:5]
     platform_system = platform.system()
     if platform_system == 'Linux':
-        if '3.8' in py_version or '3.9' in py_version:
+        if hasattr(platform, "dist"):
+            os_name, os_version, _ = platform.dist()
+        else:
             os_name = platform.system()
             os_version = platform.version()
-        else:
-            os_name, os_version, _ = platform.dist()
     else:
         os_name = platform_system
         os_version = platform.version()

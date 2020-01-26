@@ -16,7 +16,6 @@ install_requires = ['requests>=2.14.0',
                     'colorama>=0.3.9',
                     'GitPython>=2.1.5']
 
-
 # Find all available classifiers at:
 # https://pypi.python.org/pypi?%3Aaction=list_classifiers
 classifiers = ['Development Status :: 3 - Alpha',
@@ -35,10 +34,6 @@ classifiers = ['Development Status :: 3 - Alpha',
                'Topic :: Software Development :: Quality Assurance',
                'Topic :: Software Development :: Testing']
 
-file_dir = os.path.join(base_dir, 'CHANGELOG.md')
-with open(file_dir, encoding='utf-8') as f:
-    long_description = f.read()
-
 # Run the setup() command to build the package.
 setup(name=about['__title__'],
       author=about['__author__'],
@@ -47,7 +42,6 @@ setup(name=about['__title__'],
       version=about['__version__'],
       description=('Send local git changes to Travis CI '
                    'without commits or pushes.'),
-      long_description=long_description,
       url=about['__url__'],
       py_modules=['trytravis'],
       install_requires=install_requires,
