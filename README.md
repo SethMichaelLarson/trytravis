@@ -86,6 +86,7 @@ Run `trytravis --repo` and enter in the URL to the repository that you just crea
 You can use `ssh://git@github.com/[USERNAME]/[PROJECT]` or
 `https://github.com/[USERNAME]/[PROJECT]` as the URL for the repository.
 
+
 ### Get your access token to Travis API:
 
 Install travis package: `gem install travis`,
@@ -98,9 +99,12 @@ Successfully logged in as your_github_user!
 Your access token is your_access_token`
 ```
 
-### Tell `trytravis` which token to use
+### Tell `trytravis` which token to use:
 
 Run `trytravis --token` and just paste your generated token.
+
+**IMPORTANT**: Make sure the project name in copied URL doesn't contain the `.git` suffix
+
 
 ### Ready to Use the Tool
 
